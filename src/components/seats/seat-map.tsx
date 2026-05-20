@@ -19,6 +19,7 @@ import { cn, formatPrice } from '@/lib/utils';
 import { SEAT_CLASSES } from '@/lib/constants';
 import type { Seat } from '@/types';
 import { toast } from 'sonner';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface SeatMapProps {
   flightId: string;
@@ -66,7 +67,7 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
           table: 'seats',
           filter: `flight_id=eq.${flightId}`,
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<Seat>) => {
           // Update seat in local state
           if (payload.eventType === 'UPDATE') {
             const updatedSeat = payload.new as Seat;
