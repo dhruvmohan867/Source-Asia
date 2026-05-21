@@ -99,7 +99,7 @@ export default function PassengersPage() {
     try {
       const supabase = createClient();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.rpc as any)('create_booking', {
+    const { data, error } = await supabase.rpc('create_booking', {
   p_user_id: String(userId),
   p_flight_id: String(selectedFlight.id),
   p_seat_ids: selectedSeats.map((s) => String(s.id)),

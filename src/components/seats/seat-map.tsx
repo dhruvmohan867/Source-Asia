@@ -96,7 +96,7 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
       removeSeat(seat.id);
       if (userId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.rpc as any)('unlock_seat', {
+        await supabase.rpc('unlock_seat', {
           p_seat_id: seat.id,
           p_user_id: userId,
         });
@@ -113,7 +113,7 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
     // Lock seat via RPC
     if (userId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.rpc as any)('lock_seat', {
+      const { data } = await supabase.rpc('lock_seat', {
         p_seat_id: seat.id,
         p_user_id: userId,
       });

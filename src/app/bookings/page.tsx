@@ -23,7 +23,7 @@ import {
   isWithinHours,
 } from "@/lib/utils";
 import { AIRPORTS } from "@/lib/constants";
-import type { BookingWithFlight } from "@/types";
+import type { BookingWithFlight , Flight } from "@/types";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -40,7 +40,7 @@ export default function BookingsPage() {
   const [selectedBooking, setSelectedBooking] =
     useState<BookingWithFlight | null>(null);
 
-  const [alternativeFlights, setAlternativeFlights] = useState<any[]>([]);
+  const [alternativeFlights, setAlternativeFlights] = useState<Flight[]>([]);
   const userId = useAuthStore((s) => s.user?.id);
 
   const fetchBookings = useCallback(async () => {
@@ -66,7 +66,7 @@ export default function BookingsPage() {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawData = (data ?? []) as any[];
+    const rawData = (data ?? []) as BookingWithFlight[];
 
     // Transform data to match our type
     const transformed: BookingWithFlight[] = rawData.map((b) => ({
