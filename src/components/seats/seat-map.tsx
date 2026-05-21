@@ -1,19 +1,8 @@
-// ============================================================
-// Seat Map Component — Interactive Aircraft Seat Map
-// ============================================================
-// WHY Client Component: Handles real-time updates, seat selection
-// state, and optimistic UI. Subscribes to Supabase Realtime for
-// live seat status changes.
-//
-// INTERVIEW POINT: "The seat map uses Supabase Realtime to show
-// other users' selections in real-time, preventing conflicts."
-// ============================================================
-
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useFlightStore } from '@/stores/booking-store';
+import { useFlightStore } from '@/stores/flight-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { cn, formatPrice } from '@/lib/utils';
 import { SEAT_CLASSES } from '@/lib/constants';
@@ -119,10 +108,8 @@ export function SeatMap({
   const handleSeatClick = async (
     seat: Seat
   ) => {
-    // Prevent booked seat selection
     if (seat.status === 'booked') return;
 
-    // Prevent selecting seat locked by another user
     if (
       seat.status === 'locked' &&
       seat.locked_by !== userId
@@ -136,10 +123,7 @@ export function SeatMap({
 
     const supabase = createClient();
 
-    // ============================================================
-    // Deselect Seat
-    // ============================================================
-
+    // Deselect seat
     if (isSelected) {
       removeSeat(seat.id);
 
@@ -153,10 +137,7 @@ export function SeatMap({
       return;
     }
 
-    // ============================================================
-    // Max Seat Validation
-    // ============================================================
-
+    // Max seat validation
     if (selectedSeats.length >= maxSeats) {
       toast.error(
         `You can only select ${maxSeats} seat${
@@ -167,20 +148,14 @@ export function SeatMap({
       return;
     }
 
-    // ============================================================
-    // Optimistic UI Update
-    // ============================================================
-
+    // Optimistic UI update
     addSeat(seat);
 
     toast.success(
       `Seat ${seat.seat_number} selected`
     );
 
-    // ============================================================
-    // Lock Seat via RPC
-    // ============================================================
-
+    // Lock seat via RPC
     if (userId) {
       const { data } = await supabase.rpc(
         'lock_seat',
@@ -190,20 +165,12 @@ export function SeatMap({
         }
       );
 
-      console.log('SEAT:', seat);
-      console.log('SEAT ID:', seat.id);
-      console.log('USER ID:', userId);
-      console.log('RPC RESPONSE:', data);
-
       const result = data as {
         success: boolean;
         error?: string;
       };
 
-      // ============================================================
       // Rollback if RPC fails
-      // ============================================================
-
       if (!result?.success) {
         removeSeat(seat.id);
 
@@ -213,8 +180,6 @@ export function SeatMap({
         );
 
         fetchSeats();
-
-        return;
       }
     }
   };
@@ -364,8 +329,6 @@ export function SeatMap({
 
             return (
               <div key={rowNum}>
-                {/* Class Labels */}
-
                 {rowNum === '1' && (
                   <div className="text-center text-xs text-amber-400 font-medium py-1 mb-1">
                     First Class
@@ -445,53 +408,81 @@ export function SeatMap({
                         userId;
 
                     return (
-                      <button
+                      <div
                         key={seat.id}
-                        onClick={() =>
-                          handleSeatClick(
-                            seat
-                          )
-                        }
-                        disabled={
-                          isBooked ||
-                          isLockedByOther
-                        }
-                        aria-label={`Seat ${seat.seat_number}`}
-                        className={cn(
-                          'w-10 h-10 rounded-lg text-xs font-medium transition-all duration-150 border',
-
-                          isSelected
-                            ? 'seat-selected border-accent'
-                            : isBooked
-                              ? 'seat-booked bg-zinc-800 border-zinc-700 text-zinc-600'
-                              : isLockedByOther
-                                ? 'seat-locked border-zinc-600 text-zinc-500'
-                                : 'seat-available border-zinc-600 hover:border-accent',
-
-                          !isSelected &&
-                            !isBooked &&
-                            !isLockedByOther &&
-                            seatClass ===
-                              'first' &&
-                            'bg-amber-500/10 text-amber-300',
-
-                          !isSelected &&
-                            !isBooked &&
-                            !isLockedByOther &&
-                            seatClass ===
-                              'business' &&
-                            'bg-indigo-500/10 text-indigo-300',
-
-                          !isSelected &&
-                            !isBooked &&
-                            !isLockedByOther &&
-                            seatClass ===
-                              'economy' &&
-                            'bg-zinc-700 text-zinc-300'
-                        )}
+                        className="relative group inline-block"
                       >
-                        {seat.seat_number}
-                      </button>
+                        <button
+                          onClick={() =>
+                            handleSeatClick(
+                              seat
+                            )
+                          }
+                          disabled={
+                            isBooked ||
+                            isLockedByOther
+                          }
+                          aria-label={`Seat ${seat.seat_number}`}
+                          className={cn(
+                            'w-10 h-10 rounded-lg text-xs font-medium transition-all duration-150 border',
+
+                            isSelected
+                              ? 'seat-selected border-accent'
+                              : isBooked
+                                ? 'seat-booked bg-zinc-800 border-zinc-700 text-zinc-600'
+                                : isLockedByOther
+                                  ? 'seat-locked border-zinc-600 text-zinc-500'
+                                  : 'seat-available border-zinc-600 hover:border-accent',
+
+                            !isSelected &&
+                              !isBooked &&
+                              !isLockedByOther &&
+                              seatClass ===
+                                'first' &&
+                              'bg-amber-500/10 text-amber-300',
+
+                            !isSelected &&
+                              !isBooked &&
+                              !isLockedByOther &&
+                              seatClass ===
+                                'business' &&
+                              'bg-indigo-500/10 text-indigo-300',
+
+                            !isSelected &&
+                              !isBooked &&
+                              !isLockedByOther &&
+                              seatClass ===
+                                'economy' &&
+                              'bg-zinc-700 text-zinc-300'
+                          )}
+                        >
+                          {seat.seat_number}
+                        </button>
+
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-zinc-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-xl border border-zinc-700">
+
+                          <p className="font-semibold capitalize">
+                            {seat.seat_class} Class
+                          </p>
+
+                          <p>
+                            Extra Fee:{' '}
+                            {formatPrice(
+                              seat.price_modifier
+                            )}
+                          </p>
+
+                          {(isBooked ||
+                            isLockedByOther) && (
+                            <p className="text-red-400 mt-1">
+                              Status: Occupied
+                            </p>
+                          )}
+
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900" />
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
