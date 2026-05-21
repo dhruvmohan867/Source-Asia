@@ -17,13 +17,23 @@ export const searchSchema = z.object({
 export type SearchFormData = z.infer<typeof searchSchema>;
 
 export const passengerSchema = z.object({
-  firstName: z.string().min(2, 'First name is required').max(50),
-  lastName: z.string().min(2, 'Last name is required').max(50),
-  email: z.string().email('Valid email is required'),
-  phone: z.string().min(10, 'Valid phone number required').max(15),
-  passportNumber: z.string().optional().default(''),
-});
+  firstName: z.string().min(2),
+  lastName: z.string().min(2),
 
+  email: z.string().email(),
+
+  phone: z.string().min(10),
+
+  passportNumber: z.string(),
+
+  nationality: z
+    .string()
+    .min(2, 'Nationality is required'),
+
+  dob: z
+    .string()
+    .min(1, 'Date of birth is required'),
+});
 export type PassengerFormValues = z.infer<typeof passengerSchema>;
 
 export const loginSchema = z.object({

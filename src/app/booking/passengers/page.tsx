@@ -23,15 +23,17 @@ export default function PassengersPage() {
   const { selectedFlight, selectedSeats, totalAmount, setPassengers, setBooking, setBookingError } = useBookingStore();
   const userId = useAuthStore((s) => s.user?.id);
 
-  const [forms, setForms] = useState<PassengerFormData[]>(
-    selectedSeats.map(() => ({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      passportNumber: '',
-    }))
-  );
+ const [forms, setForms] = useState<PassengerFormData[]>(
+  selectedSeats.map(() => ({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    passportNumber: '',
+    nationality: '',
+    dob: '',
+  }))
+);
   const [errors, setErrors] = useState<Record<string, Record<string, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -103,7 +105,7 @@ export default function PassengersPage() {
   p_user_id: String(userId),
   p_flight_id: String(selectedFlight.id),
   p_seat_ids: selectedSeats.map((s) => String(s.id)),
-  p_passengers: '[]',
+  p_passengers: JSON.stringify(forms),
   p_total_amount: Number(totalAmount),
 });
 
@@ -200,6 +202,37 @@ console.log('BOOKING ERROR:', error);
                 value={form.passportNumber}
                 onChange={(e) => updateForm(index, 'passportNumber', e.target.value)}
               />
+              <Input
+  id={`nationality-${index}`}
+  label="Nationality"
+  placeholder="Indian"
+  value={form.nationality}
+  onChange={(e) =>
+    updateForm(
+      index,
+      'nationality',
+      e.target.value
+    )
+  }
+  error={errors[index]?.nationality}
+  required
+/>
+
+<Input
+  id={`dob-${index}`}
+  label="Date of Birth"
+  type="date"
+  value={form.dob}
+  onChange={(e) =>
+    updateForm(
+      index,
+      'dob',
+      e.target.value
+    )
+  }
+  error={errors[index]?.dob}
+  required
+/>
             </div>
           </div>
         ))}

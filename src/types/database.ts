@@ -135,6 +135,8 @@ export interface PassengerFormData {
   email: string;
   phone: string;
   passportNumber: string;
+  nationality: string;
+  dob: string;
 }
 
 // ---------- Supabase Database Type Map ----------
