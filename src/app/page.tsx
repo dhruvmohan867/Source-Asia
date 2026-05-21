@@ -6,10 +6,16 @@
 // This reduces the JS bundle for the landing page.
 // ============================================================
 
-import Link from 'next/link';
-import { SearchWidget } from '@/components/flights/search-widget';
+import Link from "next/link";
+import { SearchWidget } from "@/components/flights/search-widget";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createServerSupabaseClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   return (
     <div className="relative">
       {/* Hero Section */}
@@ -30,13 +36,16 @@ export default function HomePage() {
               <span className="gradient-text">Source Asia</span>
             </h1>
             <p className="text-lg md:text-xl text-muted max-w-2xl mx-auto">
-              Search, book, and manage your flights with real-time seat selection.
-              Modern aviation experience at your fingertips.
+              Search, book, and manage your flights with real-time seat
+              selection. Modern aviation experience at your fingertips.
             </p>
           </div>
 
           {/* Search Widget */}
-          <div className="max-w-4xl mx-auto animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <div
+            className="max-w-4xl mx-auto animate-slide-up"
+            style={{ animationDelay: "0.2s" }}
+          >
             <SearchWidget />
           </div>
         </div>
@@ -45,7 +54,9 @@ export default function HomePage() {
       {/* Features Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-12">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4">Why Source Asia?</h2>
+          <h2 className="text-2xl md:text-3xl font-bold mb-4">
+            Why Source Asia?
+          </h2>
           <p className="text-muted max-w-xl mx-auto">
             Built with modern technology for a seamless booking experience.
           </p>
@@ -70,9 +81,13 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="rounded-2xl bg-gradient-to-r from-accent/10 via-purple-500/10 to-accent/10 border border-accent/20 p-8 md:p-12 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready to book?</h2>
+          <h2 className="text-2xl md:text-3xl font-bold mb-4">
+            Ready to book?
+          </h2>
           <p className="text-muted mb-6 max-w-md mx-auto">
-            Create an account to save your bookings, manage reservations, and get real-time updates.
+            {user
+              ? "Manage your bookings, track reservations, and enjoy real-time updates."
+              : "Create an account to save your bookings, manage reservations, and get real-time updates."}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
@@ -81,12 +96,21 @@ export default function HomePage() {
             >
               Search Flights
             </Link>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-surface border border-border text-foreground font-medium hover:bg-surface-hover transition-colors"
-            >
-              Create Account
-            </Link>
+            {user ? (
+              <Link
+                href="/bookings"
+                className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-surface border border-border text-foreground font-medium hover:bg-surface-hover transition-colors"
+              >
+                My Bookings
+              </Link>
+            ) : (
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-surface border border-border text-foreground font-medium hover:bg-surface-hover transition-colors"
+              >
+                Create Account
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -96,21 +120,21 @@ export default function HomePage() {
 
 const features = [
   {
-    icon: '🔍',
-    title: 'Smart Search',
+    icon: "🔍",
+    title: "Smart Search",
     description:
-      'Search flights by origin, destination, date, and passenger count with instant results.',
+      "Search flights by origin, destination, date, and passenger count with instant results.",
   },
   {
-    icon: '💺',
-    title: 'Real-Time Seats',
+    icon: "💺",
+    title: "Real-Time Seats",
     description:
-      'Interactive seat map with live availability. See seat status change in real-time.',
+      "Interactive seat map with live availability. See seat status change in real-time.",
   },
   {
-    icon: '📱',
-    title: 'PWA Ready',
+    icon: "📱",
+    title: "PWA Ready",
     description:
-      'Install as an app, view bookings offline, and get a native-like experience on any device.',
+      "Install as an app, view bookings offline, and get a native-like experience on any device.",
   },
 ];
