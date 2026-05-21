@@ -16,6 +16,7 @@ import { passengerSchema } from '@/lib/validators';
 import type { PassengerFormData } from '@/types';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import error from '@/app/error';
 
 export default function PassengersPage() {
   const router = useRouter();
@@ -98,14 +99,16 @@ export default function PassengersPage() {
     try {
       const supabase = createClient();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.rpc as any)('create_booking', {
-        p_user_id: userId,
-        p_flight_id: selectedFlight.id,
-        p_seat_ids: selectedSeats.map((s) => s.id),
-        p_passengers: JSON.stringify(forms),
-        p_total_amount: totalAmount,
-      });
+    const { data, error } = await (supabase.rpc as any)('create_booking', {
+  p_user_id: String(userId),
+  p_flight_id: String(selectedFlight.id),
+  p_seat_ids: selectedSeats.map((s) => String(s.id)),
+  p_passengers: '[]',
+  p_total_amount: Number(totalAmount),
+});
 
+console.log('BOOKING DATA:', data);
+console.log('BOOKING ERROR:', error);
       const result = data as { success: boolean; error?: string; pnr?: string; booking_id?: string };
 
       if (!result?.success) {

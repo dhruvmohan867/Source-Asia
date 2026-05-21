@@ -117,7 +117,10 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
         p_seat_id: seat.id,
         p_user_id: userId,
       });
-
+     console.log('SEAT:', seat);
+     console.log('SEAT ID:', seat.id);
+     console.log('USER ID:', userId);
+     console.log('RPC RESPONSE:', data);
       const result = data as { success: boolean; error?: string };
       if (!result?.success) {
         toast.error(result?.error ?? 'Failed to select seat');

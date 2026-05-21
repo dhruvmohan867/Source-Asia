@@ -55,8 +55,8 @@ export default async function FlightsPage({ searchParams }: FlightsPageProps) {
     .select('*')
     .eq('origin', origin)
     .eq('destination', destination)
-    .gte('departure_time', startOfDay)
-    .lte('departure_time', endOfDay)
+   // .gte('departure_time', startOfDay)
+    //.lte('departure_time', endOfDay)
     .gte('available_seats', passengers)
     .in('status', ['scheduled', 'delayed'])
     .order('departure_time', { ascending: true });
