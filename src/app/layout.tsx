@@ -8,7 +8,7 @@
 // - Toaster provides app-wide notifications
 // - Header/Footer provide consistent navigation
 // ============================================================
-
+import { InstallPrompt } from '@/components/pwa/install-prompt';
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
@@ -66,6 +66,8 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
+         <InstallPrompt />
+
         <script
           dangerouslySetInnerHTML={{
             __html: `
