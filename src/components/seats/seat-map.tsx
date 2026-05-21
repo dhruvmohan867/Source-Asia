@@ -13,7 +13,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useBookingStore } from '@/stores/booking-store';
+import { useFlightStore } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { cn, formatPrice } from '@/lib/utils';
 import { SEAT_CLASSES } from '@/lib/constants';
@@ -39,7 +39,7 @@ export function SeatMap({
     selectedSeats,
     addSeat,
     removeSeat,
-  } = useBookingStore();
+  } = useFlightStore();
 
   const userId = useAuthStore(
     (s) => s.user?.id

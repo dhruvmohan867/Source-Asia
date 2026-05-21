@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useBookingStore } from '@/stores/booking-store';
+import { useFlightStore } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import error from '@/app/error';
 
 export default function PassengersPage() {
   const router = useRouter();
-  const { selectedFlight, selectedSeats, totalAmount, setPassengers, setBooking, setBookingError } = useBookingStore();
+  const { selectedFlight, selectedSeats, totalAmount, setPassengerFormData, setBooking, setBookingError } = useFlightStore();
   const userId = useAuthStore((s) => s.user?.id);
 
  const [forms, setForms] = useState<PassengerFormData[]>(
@@ -117,7 +117,7 @@ console.log('BOOKING ERROR:', error);
         throw new Error(result?.error ?? 'Booking failed');
       }
 
-      setPassengers(forms);
+      setPassengerFormData(forms);
       toast.success('Booking confirmed!');
       router.push(`/booking/confirmation?pnr=${result.pnr}`);
     } catch (error) {

@@ -9,7 +9,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useSearchStore } from '@/stores/search-store';
+import { useFlightStore } from '@/stores/search-store';
 import { Button } from '@/components/ui/button';
 import { AIRPORTS } from '@/lib/constants';
 
@@ -17,8 +17,8 @@ export function SearchWidget() {
   const router = useRouter();
   const {
     origin, destination, date, passengers,
-    setOrigin, setDestination, setDate, setPassengers, swapCities,
-  } = useSearchStore();
+    setOrigin, setDestination, setDate, setPassengerFormData , swapCities,
+  } = useFlightStore();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleSearch = (e: React.FormEvent) => {
@@ -134,7 +134,7 @@ export function SearchWidget() {
           <select
             id="search-passengers"
             value={passengers}
-            onChange={(e) => setPassengers(Number(e.target.value))}
+            onChange={(e) => setPassengerFormData(Number(e.target.value))}
             className="w-full h-12 px-4 rounded-xl bg-background border border-border text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
           >
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => (

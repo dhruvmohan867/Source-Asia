@@ -34,7 +34,7 @@ interface BookingActions {
   setFlight: (flight: Flight) => void;
   addSeat: (seat: Seat) => void;
   removeSeat: (seatId: string) => void;
-  setPassengers: (passengers: PassengerFormData[]) => void;
+  setPassengerFormData : (passengers: PassengerFormData[]) => void;
   setTotalAmount: (amount: number) => void;
   setBooking: (isBooking: boolean) => void;
   setBookingError: (error: string | null) => void;
@@ -51,7 +51,7 @@ const initialState: BookingState = {
   bookingError: null,
 };
 
-export const useBookingStore = create<BookingState & BookingActions>()(
+export const useFlightStore = create<BookingState & BookingActions>()(
   persist(
     (set, get) => ({
       ...initialState,
@@ -91,7 +91,7 @@ export const useBookingStore = create<BookingState & BookingActions>()(
         });
       },
 
-      setPassengers: (passengers) => set({ passengers }),
+      setPassengerFormData : (passengers) => set({ passengers }),
 
       setTotalAmount: (totalAmount) => set({ totalAmount }),
 

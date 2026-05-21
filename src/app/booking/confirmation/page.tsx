@@ -5,7 +5,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useBookingStore } from '@/stores/booking-store';
+import { useFlightStore } from '@/stores/booking-store';
 import { Button } from '@/components/ui/button';
 import { formatPrice, formatTime, formatDate } from '@/lib/utils';
 import { AIRPORTS } from '@/lib/constants';
@@ -16,7 +16,7 @@ import { Suspense } from 'react';
 function ConfirmationContent() {
   const searchParams = useSearchParams();
   const pnr = searchParams.get('pnr');
-  const { selectedFlight, selectedSeats, totalAmount, reset } = useBookingStore();
+  const { selectedFlight, selectedSeats, totalAmount, reset } = useFlightStore();
 
   // Store flight info before reset
   const flightInfo = selectedFlight;

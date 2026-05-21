@@ -5,7 +5,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useBookingStore } from '@/stores/booking-store';
+import { useFlightStore } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { SeatMap } from '@/components/seats/seat-map';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { Suspense } from 'react';
 function SeatSelectionContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { selectedFlight, selectedSeats, totalAmount } = useBookingStore();
+  const { selectedFlight, selectedSeats, totalAmount } = useFlightStore();
   const { isAuthenticated } = useAuthStore();
 
   const flightId = searchParams.get('flightId');

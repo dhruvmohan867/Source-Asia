@@ -16,7 +16,7 @@ interface SearchActions {
   setOrigin: (origin: string) => void;
   setDestination: (destination: string) => void;
   setDate: (date: string) => void;
-  setPassengers: (passengers: number) => void;
+  setPassengerFormData : (passengers: number) => void;
   swapCities: () => void;
   reset: () => void;
 }
@@ -28,7 +28,7 @@ const initialState: SearchState = {
   passengers: 1,
 };
 
-export const useSearchStore = create<SearchState & SearchActions>()(
+export const useFlightStore = create<SearchState & SearchActions>()(
   persist(
     (set, get) => ({
       ...initialState,
@@ -36,7 +36,7 @@ export const useSearchStore = create<SearchState & SearchActions>()(
       setOrigin: (origin) => set({ origin }),
       setDestination: (destination) => set({ destination }),
       setDate: (date) => set({ date }),
-      setPassengers: (passengers) => set({ passengers }),
+      setPassengerFormData : (passengers) => set({ passengers }),
 
       swapCities: () => {
         const { origin, destination } = get();
