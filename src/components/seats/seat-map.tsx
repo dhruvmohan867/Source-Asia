@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useFlightStore } from "@/stores/flight-store";
+import { useBookingStore } from "@/stores/booking-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn, formatPrice } from "@/lib/utils";
 import { SEAT_CLASSES } from "@/lib/constants";
@@ -29,15 +29,15 @@ export function SeatMap({
   // Zustand Store Selectors (IMPORTANT FIX)
   // ============================================================
 
-  const selectedSeats = useFlightStore(
+  const selectedSeats = useBookingStore(
     (state) => state.selectedSeats
   );
 
-  const addSeat = useFlightStore(
+  const addSeat = useBookingStore(
     (state) => state.addSeat
   );
 
-  const removeSeat = useFlightStore(
+  const removeSeat = useBookingStore(
     (state) => state.removeSeat
   );
 

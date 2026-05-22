@@ -51,7 +51,7 @@ const initialState: BookingState = {
   bookingError: null,
 };
 
-export const useFlightStore = create<BookingState & BookingActions>()(
+export const useBookingStore = create<BookingState & BookingActions>()(
   persist(
     (set, get) => ({
       ...initialState,
@@ -67,9 +67,16 @@ export const useFlightStore = create<BookingState & BookingActions>()(
           totalAmount: selectedFlight.base_price,
         }),
 
-      addSeat: (seat) => {
+     addSeat: (seat) => {
         const current = get().selectedSeats;
-        if (current.find((s) => s.id === seat.id)) return;
+        if (current.find((s) => s.id === seat.id)) {
+          get().removeSeat(seat.id);
+          return;
+        }
+        const maxSeats = get().passengers.length || 1;
+        if (current.length >= maxSeats) {
+          return; 
+        }
         const newSeats = [...current, seat];
         const flight = get().selectedFlight;
         const baseAmount = (flight?.base_price ?? 0) * newSeats.length;

@@ -5,7 +5,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useFlightStore } from '@/stores/booking-store';
+import { useBookingStore } from '@/stores/booking-store';
 import { Button } from '@/components/ui/button';
 import { formatPrice, formatTime, formatDate } from '@/lib/utils';
 import { AIRPORTS } from '@/lib/constants';
@@ -16,20 +16,14 @@ import { Suspense } from 'react';
 function ConfirmationContent() {
   const searchParams = useSearchParams();
   const pnr = searchParams.get('pnr');
-  const { selectedFlight, selectedSeats, totalAmount, reset } = useFlightStore();
+  const { selectedFlight, selectedSeats, totalAmount, reset } = useBookingStore();
 
   // Store flight info before reset
   const flightInfo = selectedFlight;
   const seatsInfo = selectedSeats;
   const amount = totalAmount;
 
-  useEffect(() => {
-    // Clean up booking state after showing confirmation
-    return () => {
-      reset();
-    };
-  }, [reset]);
-
+ 
   if (!pnr) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 text-center">

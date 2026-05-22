@@ -7,7 +7,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
-import { useFlightStore } from '@/stores/booking-store';
+import { useBookingStore } from '@/stores/booking-store';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
@@ -17,7 +17,7 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, reset: resetAuth } = useAuthStore();
-  const resetBooking = useFlightStore((s) => s.reset);
+  const resetBooking = useBookingStore((s) => s.reset);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {

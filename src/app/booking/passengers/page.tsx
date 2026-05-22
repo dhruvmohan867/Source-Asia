@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFlightStore } from '@/stores/booking-store';
+import { useBookingStore } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import error from '@/app/error';
 
 export default function PassengersPage() {
   const router = useRouter();
-  const { selectedFlight, selectedSeats, totalAmount, setPassengerFormData, setBooking, setBookingError } = useFlightStore();
+  const { selectedFlight, selectedSeats, totalAmount, setPassengerFormData, setBooking, setBookingError } = useBookingStore();
   const userId = useAuthStore((s) => s.user?.id);
 
  const [forms, setForms] = useState<PassengerFormData[]>(

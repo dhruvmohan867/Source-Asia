@@ -6,7 +6,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { Flight } from '@/types';
-import { useFlightStore } from '@/stores/booking-store';
+import { useBookingStore } from '@/stores/booking-store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatPrice, formatTime, formatDate, calculateDuration } from '@/lib/utils';
@@ -19,7 +19,7 @@ interface FlightCardProps {
 
 export function FlightCard({ flight, passengers }: FlightCardProps) {
   const router = useRouter();
-  const setFlight = useFlightStore((s) => s.setFlight);
+  const setFlight = useBookingStore((s) => s.setFlight);
 
   const originAirport = AIRPORTS.find((a) => a.code === flight.origin);
   const destAirport = AIRPORTS.find((a) => a.code === flight.destination);
