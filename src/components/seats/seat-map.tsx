@@ -16,13 +16,34 @@ interface SeatMapProps {
   basePrice: number;
 }
 
-export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
+export function SeatMap({
+  flightId,
+  maxSeats,
+  basePrice,
+}: SeatMapProps) {
   const [seats, setSeats] = useState<Seat[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] =
+    useState(true);
 
-  const { selectedSeats, addSeat, removeSeat } = useFlightStore();
+  // ============================================================
+  // Zustand Store Selectors (IMPORTANT FIX)
+  // ============================================================
 
-  const userId = useAuthStore((s) => s.user?.id);
+  const selectedSeats = useFlightStore(
+    (state) => state.selectedSeats
+  );
+
+  const addSeat = useFlightStore(
+    (state) => state.addSeat
+  );
+
+  const removeSeat = useFlightStore(
+    (state) => state.removeSeat
+  );
+
+  const userId = useAuthStore(
+    (state) => state.user?.id
+  );
 
   // ============================================================
   // Fetch Seats
@@ -43,6 +64,7 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
     }
 
     setSeats((data as Seat[]) ?? []);
+
     setIsLoading(false);
   }, [flightId]);
 
@@ -67,15 +89,24 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
           table: "seats",
           filter: `flight_id=eq.${flightId}`,
         },
-        (payload: RealtimePostgresChangesPayload<Seat>) => {
-          if (payload.eventType === "UPDATE") {
-            const updatedSeat = payload.new as Seat;
+        (
+          payload: RealtimePostgresChangesPayload<Seat>
+        ) => {
+          if (
+            payload.eventType === "UPDATE"
+          ) {
+            const updatedSeat =
+              payload.new as Seat;
 
             setSeats((prev) =>
-              prev.map((s) => (s.id === updatedSeat.id ? updatedSeat : s)),
+              prev.map((seat) =>
+                seat.id === updatedSeat.id
+                  ? updatedSeat
+                  : seat
+              )
             );
           }
-        },
+        }
       )
       .subscribe();
 
@@ -85,87 +116,160 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
   }, [flightId]);
 
   // ============================================================
-  // Seat Selection Logic (Optimistic UI)
+  // Seat Selection Logic
   // ============================================================
 
-  const handleSeatClick = async (seat: Seat) => {
-    if (seat.status === "booked") return;
-
-    if (seat.status === "locked" && seat.locked_by !== userId) {
+  const handleSeatClick = async (
+    seat: Seat
+  ) => {
+    // Prevent booked seat selection
+    if (seat.status === "booked") {
       return;
     }
 
-    const isSelected = selectedSeats.find((s) => s.id === seat.id);
+    // Prevent selecting another user's lock
+    if (
+      seat.status === "locked" &&
+      seat.locked_by !== userId
+    ) {
+      return;
+    }
 
     const supabase = createClient();
 
-    // Deselect seat
+    const isSelected =
+      selectedSeats.some(
+        (selectedSeat) =>
+          selectedSeat.id === seat.id
+      );
+
+    // ============================================================
+    // Deselect Seat
+    // ============================================================
+
     if (isSelected) {
       removeSeat(seat.id);
 
-      if (userId) {
-        await supabase.rpc("unlock_seat", {
-          p_seat_id: seat.id,
-        });
+      const { error } =
+        await supabase.rpc(
+          "unlock_seat",
+          {
+            p_seat_id: seat.id,
+          }
+        );
+
+      if (error) {
+        console.error(
+          "UNLOCK ERROR:",
+          error
+        );
       }
 
       return;
     }
 
-    // Max seat validation
-    if (selectedSeats.length >= maxSeats) {
+    // ============================================================
+    // Max Seat Validation
+    // ============================================================
+
+    if (
+      selectedSeats.length >= maxSeats
+    ) {
       toast.error(
-        `You can only select ${maxSeats} seat${maxSeats > 1 ? "s" : ""}`,
+        `You can only select ${maxSeats} seat${
+          maxSeats > 1 ? "s" : ""
+        }`
       );
 
       return;
     }
 
-    // Optimistic UI update
+    // ============================================================
+    // Optimistic UI Update
+    // ============================================================
+
     addSeat(seat);
 
-    toast.success(`Seat ${seat.seat_number} selected`);
+    toast.success(
+      `Seat ${seat.seat_number} selected`
+    );
 
-    // Lock seat via RPC
-    if (userId) {
-      const { data, error } = await supabase.rpc("lock_seat", {
-        p_seat_id: seat.id,
-      });
+    // ============================================================
+    // Lock Seat in Backend
+    // ============================================================
 
-      console.log("LOCK RESPONSE:", data);
-      console.log("LOCK ERROR:", error);
+    const { data, error } =
+      await supabase.rpc(
+        "lock_seat",
+        {
+          p_seat_id: seat.id,
+        }
+      );
 
-      const result = data as {
-        success: boolean;
-        error?: string;
-      };
+    console.log(
+      "LOCK RESPONSE:",
+      data
+    );
 
-      // Rollback if RPC fails
-      if (error || !result?.success) {
-        removeSeat(seat.id);
+    console.log(
+      "LOCK ERROR:",
+      error
+    );
 
-        toast.error(result?.error ?? error?.message ?? "Failed to select seat");
+    const result = data as {
+      success: boolean;
+      error?: string;
+    };
 
-        fetchSeats();
-      }
+    // ============================================================
+    // Rollback on Failure
+    // ============================================================
+
+    if (
+      error ||
+      !result?.success
+    ) {
+      removeSeat(seat.id);
+
+      toast.error(
+        result?.error ??
+          error?.message ??
+          "Failed to select seat"
+      );
+
+      fetchSeats();
+
+      return;
     }
   };
 
   // ============================================================
-  // Group Seats by Row
+  // Group Seats By Row
   // ============================================================
 
-  const seatsByRow = seats.reduce<Record<string, Seat[]>>((acc, seat) => {
-    const row = seat.seat_number.replace(/[A-F]/g, "");
+  const seatsByRow = seats.reduce<
+    Record<string, Seat[]>
+  >((acc, seat) => {
+    const row =
+      seat.seat_number.replace(
+        /[A-F]/g,
+        ""
+      );
 
-    if (!acc[row]) acc[row] = [];
+    if (!acc[row]) {
+      acc[row] = [];
+    }
 
     acc[row].push(seat);
 
     return acc;
   }, {});
 
-  const rows = Object.keys(seatsByRow).sort((a, b) => Number(a) - Number(b));
+  const rows = Object.keys(
+    seatsByRow
+  ).sort(
+    (a, b) => Number(a) - Number(b)
+  );
 
   // ============================================================
   // Loading State
@@ -176,10 +280,20 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
       <div className="space-y-4">
         <div className="skeleton h-8 w-48 mx-auto" />
 
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex justify-center gap-2">
-            {Array.from({ length: 6 }).map((_, j) => (
-              <div key={j} className="skeleton w-10 h-10 rounded-lg" />
+        {Array.from({
+          length: 8,
+        }).map((_, rowIndex) => (
+          <div
+            key={rowIndex}
+            className="flex justify-center gap-2"
+          >
+            {Array.from({
+              length: 6,
+            }).map((_, seatIndex) => (
+              <div
+                key={seatIndex}
+                className="skeleton w-10 h-10 rounded-lg"
+              />
             ))}
           </div>
         ))}
@@ -194,81 +308,120 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
   return (
     <div className="space-y-6">
       {/* Legend */}
+
       <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-zinc-700 border border-zinc-600" />
-          <span className="text-muted">Available</span>
+
+          <span className="text-muted">
+            Available
+          </span>
         </div>
 
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-accent" />
-          <span className="text-muted">Selected</span>
+
+          <span className="text-muted">
+            Selected
+          </span>
         </div>
 
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-zinc-800 opacity-30" />
-          <span className="text-muted">Booked</span>
+
+          <span className="text-muted">
+            Booked
+          </span>
         </div>
 
-        {Object.entries(SEAT_CLASSES).map(([key, val]) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <span>{val.icon}</span>
+        {Object.entries(
+          SEAT_CLASSES
+        ).map(([key, value]) => (
+          <div
+            key={key}
+            className="flex items-center gap-1.5"
+          >
+            <span>{value.icon}</span>
 
-            <span className="text-muted">{val.label}</span>
+            <span className="text-muted">
+              {value.label}
+            </span>
           </div>
         ))}
       </div>
 
       {/* Aircraft Nose */}
+
       <div className="flex justify-center">
         <div className="w-32 h-8 rounded-t-full bg-surface border border-border border-b-0" />
       </div>
 
       {/* Seat Map */}
+
       <div className="seat-map-container">
         <div className="min-w-[360px] max-w-lg mx-auto space-y-1.5 px-4">
           {/* Column Labels */}
+
           <div className="flex items-center justify-center gap-1.5 mb-2">
-            {["A", "B", "C", "", "D", "E", "F"].map((col, i) =>
-              col === "" ? (
-                <div key={`aisle-${i}`} className="w-8" />
+            {[
+              "A",
+              "B",
+              "C",
+              "",
+              "D",
+              "E",
+              "F",
+            ].map((column, index) =>
+              column === "" ? (
+                <div
+                  key={`aisle-${index}`}
+                  className="w-8"
+                />
               ) : (
                 <div
-                  key={col}
+                  key={column}
                   className="w-10 text-center text-xs text-muted font-medium"
                 >
-                  {col}
+                  {column}
                 </div>
-              ),
+              )
             )}
           </div>
 
-          {rows.map((rowNum) => {
-            const rowSeats = seatsByRow[rowNum];
+          {rows.map((rowNumber) => {
+            const rowSeats =
+              seatsByRow[rowNumber];
 
-            const seatClass = rowSeats[0]?.seat_class;
+            const seatClass =
+              rowSeats[0]?.seat_class;
 
-            const isExitRow = rowNum === "11" || rowNum === "12";
+            const isExitRow =
+              rowNumber === "11" ||
+              rowNumber === "12";
 
             return (
-              <div key={rowNum}>
-                {rowNum === "1" && (
+              <div key={rowNumber}>
+                {/* Cabin Labels */}
+
+                {rowNumber === "1" && (
                   <div className="text-center text-xs text-amber-400 font-medium py-1 mb-1">
                     First Class
                   </div>
                 )}
 
-                {rowNum === "4" && (
+                {rowNumber === "4" && (
                   <div className="text-center text-xs text-indigo-400 font-medium py-1 mb-1 border-t border-border mt-2 pt-2">
                     Business Class
                   </div>
                 )}
 
-                {rowNum === "11" && (
+                {rowNumber === "11" && (
                   <div className="text-center text-xs text-emerald-400 font-medium py-1 mb-1 border-t border-border mt-2 pt-2">
                     Economy Class
                   </div>
                 )}
+
+                {/* Exit Row */}
 
                 {isExitRow && (
                   <div className="text-center text-[10px] text-amber-500 mb-0.5">
@@ -276,39 +429,67 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
                   </div>
                 )}
 
+                {/* Seat Row */}
+
                 <div className="flex items-center justify-center gap-1.5">
-                  {["A", "B", "C", "AISLE", "D", "E", "F"].map((col) => {
-                    if (col === "AISLE") {
+                  {[
+                    "A",
+                    "B",
+                    "C",
+                    "AISLE",
+                    "D",
+                    "E",
+                    "F",
+                  ].map((column) => {
+                    if (
+                      column === "AISLE"
+                    ) {
                       return (
                         <div
-                          key={`${rowNum}-aisle`}
+                          key={`${rowNumber}-aisle`}
                           className="w-8 flex items-center justify-center"
                         >
                           <span className="text-[10px] text-zinc-600">
-                            {rowNum}
+                            {rowNumber}
                           </span>
                         </div>
                       );
                     }
 
-                    const seat = rowSeats.find(
-                      (s) => s.seat_number === `${rowNum}${col}`,
-                    );
+                    const seat =
+                      rowSeats.find(
+                        (currentSeat) =>
+                          currentSeat.seat_number ===
+                          `${rowNumber}${column}`
+                      );
 
                     if (!seat) {
                       return (
-                        <div key={`${rowNum}${col}`} className="w-10 h-10" />
+                        <div
+                          key={`${rowNumber}${column}`}
+                          className="w-10 h-10"
+                        />
                       );
                     }
 
-                    const isSelected = selectedSeats.find(
-                      (s) => s.id === seat.id,
-                    );
+                    const isSelected =
+                      selectedSeats.some(
+                        (
+                          selectedSeat
+                        ) =>
+                          selectedSeat.id ===
+                          seat.id
+                      );
 
-                    const isBooked = seat.status === "booked";
+                    const isBooked =
+                      seat.status ===
+                      "booked";
 
                     const isLockedByOther =
-                      seat.status === "locked" && seat.locked_by !== userId;
+                      seat.status ===
+                        "locked" &&
+                      seat.locked_by !==
+                        userId;
 
                     return (
                       <div
@@ -316,8 +497,15 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
                         className="relative group inline-block"
                       >
                         <button
-                          onClick={() => handleSeatClick(seat)}
-                          disabled={isBooked || isLockedByOther}
+                          onClick={() =>
+                            handleSeatClick(
+                              seat
+                            )
+                          }
+                          disabled={
+                            isBooked ||
+                            isLockedByOther
+                          }
                           aria-label={`Seat ${seat.seat_number}`}
                           className={cn(
                             "w-10 h-10 rounded-lg text-xs font-medium transition-all duration-150 border",
@@ -333,36 +521,52 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
                             !isSelected &&
                               !isBooked &&
                               !isLockedByOther &&
-                              seatClass === "first" &&
+                              seatClass ===
+                                "first" &&
                               "bg-amber-500/10 text-amber-300",
 
                             !isSelected &&
                               !isBooked &&
                               !isLockedByOther &&
-                              seatClass === "business" &&
+                              seatClass ===
+                                "business" &&
                               "bg-indigo-500/10 text-indigo-300",
 
                             !isSelected &&
                               !isBooked &&
                               !isLockedByOther &&
-                              seatClass === "economy" &&
-                              "bg-zinc-700 text-zinc-300",
+                              seatClass ===
+                                "economy" &&
+                              "bg-zinc-700 text-zinc-300"
                           )}
                         >
-                          {seat.seat_number}
+                          {
+                            seat.seat_number
+                          }
                         </button>
 
                         {/* Tooltip */}
+
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-zinc-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-xl border border-zinc-700">
                           <p className="font-semibold capitalize">
-                            {seat.seat_class} Class
+                            {
+                              seat.seat_class
+                            }{" "}
+                            Class
                           </p>
 
-                          <p>Extra Fee: {formatPrice(seat.price_modifier)}</p>
+                          <p>
+                            Extra Fee:{" "}
+                            {formatPrice(
+                              seat.price_modifier
+                            )}
+                          </p>
 
-                          {(isBooked || isLockedByOther) && (
+                          {(isBooked ||
+                            isLockedByOther) && (
                             <p className="text-red-400 mt-1">
-                              Status: Occupied
+                              Status:
+                              Occupied
                             </p>
                           )}
 
@@ -379,6 +583,7 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
       </div>
 
       {/* Aircraft Tail */}
+
       <div className="flex justify-center">
         <div className="w-20 h-6 rounded-b-lg bg-surface border border-border border-t-0" />
       </div>
