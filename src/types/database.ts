@@ -178,16 +178,16 @@ export interface Database {
     };
     Functions: {
       lock_seat: {
-        Args: { p_seat_id: string; p_user_id: string };
-        Returns: LockSeatResponse;
-      };
+  Args: { p_seat_id: string };
+  Returns: LockSeatResponse;
+};
       unlock_seat: {
-        Args: { p_seat_id: string; p_user_id: string };
-        Returns: RPCResponse;
-      };
+  Args: { p_seat_id: string };
+  Returns: RPCResponse;
+};
       create_booking: {
         Args: {
-          p_user_id: string;
+          
           p_flight_id: string;
           p_seat_ids: string[];
           p_passengers: PassengerFormData[];
@@ -196,7 +196,7 @@ export interface Database {
         Returns: CreateBookingResponse;
       };
       cancel_booking: {
-        Args: { p_booking_id: string; p_user_id: string };
+        Args: { p_booking_id: string };
         Returns: CancelBookingResponse;
       };
       release_expired_locks: {

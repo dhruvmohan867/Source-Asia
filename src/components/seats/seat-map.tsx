@@ -160,8 +160,8 @@ export function SeatMap({
       const { data } = await supabase.rpc(
         'lock_seat',
         {
-          p_seat_id: seat.id,
-          p_user_id: userId,
+          p_seat_id: seat.id
+         
         }
       );
 

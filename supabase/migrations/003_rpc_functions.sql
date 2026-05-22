@@ -38,62 +38,100 @@ $$ LANGUAGE plpgsql;
 -- automatic expiry to handle concurrent seat selection."
 
 CREATE OR REPLACE FUNCTION lock_seat(
-    p_seat_id UUID,
-    p_user_id UUID
+    p_seat_id UUID
 )
 RETURNS JSON AS $$
 DECLARE
+    -- Secure authenticated user
+    v_user_id UUID := auth.uid();
+
+    -- Seat data
     v_seat RECORD;
-    v_result JSON;
+
+    -- Lock duration
+    v_lock_duration INTERVAL := INTERVAL '10 minutes';
+
+    -- User active locks
+    v_user_lock_count INTEGER;
+
+    -- Max allowed simultaneous locks
+    v_max_locks INTEGER := 5;
+
 BEGIN
-    -- First, release any expired locks
+
+    -- Reject unauthenticated users
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
+    END IF;
+
+    -- Release expired locks first
     PERFORM release_expired_locks();
 
-    -- Try to acquire lock on the seat
-    SELECT * INTO v_seat
+    -- Prevent excessive seat locking spam
+    SELECT COUNT(*)
+    INTO v_user_lock_count
+    FROM seats
+    WHERE
+        locked_by = v_user_id
+        AND status = 'locked'
+        AND locked_until > NOW();
+
+    IF v_user_lock_count >= v_max_locks THEN
+        RAISE EXCEPTION
+            'Maximum active seat locks reached';
+    END IF;
+
+    -- Fetch and lock seat row safely
+    SELECT *
+    INTO v_seat
     FROM seats
     WHERE id = p_seat_id
     FOR UPDATE SKIP LOCKED;
 
-    -- Seat is being modified by another transaction
+    -- Seat missing
     IF v_seat IS NULL THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'Seat is currently being processed by another user'
-        );
+        RAISE EXCEPTION
+            'Seat not found or currently locked';
     END IF;
 
-    -- Check if seat is available
+    -- Already booked
     IF v_seat.status = 'booked' THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'Seat is already booked'
-        );
+        RAISE EXCEPTION
+            'Seat is already booked';
     END IF;
 
-    -- Check if locked by another user (and not expired)
-    IF v_seat.status = 'locked' AND v_seat.locked_by != p_user_id AND v_seat.locked_until > NOW() THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'Seat is temporarily reserved by another user'
-        );
+    -- Locked by another user
+    IF v_seat.status = 'locked'
+       AND v_seat.locked_by != v_user_id
+       AND v_seat.locked_until > NOW() THEN
+
+        RAISE EXCEPTION
+            'Seat is currently reserved by another user';
     END IF;
 
-    -- Lock the seat for this user (5 minute window)
+    -- Lock seat
     UPDATE seats
-    SET status = 'locked',
-        locked_by = p_user_id,
-        locked_until = NOW() + INTERVAL '5 minutes'
+    SET
+        status = 'locked',
+        locked_by = v_user_id,
+        locked_until = NOW() + v_lock_duration
     WHERE id = p_seat_id;
 
     RETURN json_build_object(
         'success', true,
         'seat_id', p_seat_id,
-        'locked_until', (NOW() + INTERVAL '5 minutes')
+        'locked_until', NOW() + v_lock_duration
     );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', SQLERRM
+        );
+
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- ============================================================
 -- 3. UNLOCK SEAT
 -- ============================================================
@@ -101,27 +139,62 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Only the user who locked it can unlock it.
 
 CREATE OR REPLACE FUNCTION unlock_seat(
-    p_seat_id UUID,
-    p_user_id UUID
+    p_seat_id UUID
 )
 RETURNS JSON AS $$
-BEGIN
-    UPDATE seats
-    SET status = 'available',
-        locked_by = NULL,
-        locked_until = NULL
-    WHERE id = p_seat_id
-      AND locked_by = p_user_id
-      AND status = 'locked';
+DECLARE
+    -- Secure authenticated user
+    v_user_id UUID := auth.uid();
 
-    IF NOT FOUND THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'Seat not found or not locked by you'
-        );
+    -- Seat data
+    v_seat RECORD;
+
+BEGIN
+
+    -- Reject unauthenticated users
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
     END IF;
 
-    RETURN json_build_object('success', true);
+    -- Fetch seat safely
+    SELECT *
+    INTO v_seat
+    FROM seats
+    WHERE id = p_seat_id
+    FOR UPDATE;
+
+    -- Seat missing
+    IF v_seat IS NULL THEN
+        RAISE EXCEPTION
+            'Seat not found';
+    END IF;
+
+    -- Prevent unlocking another user's seat
+    IF v_seat.locked_by != v_user_id THEN
+        RAISE EXCEPTION
+            'You cannot unlock another user''s seat';
+    END IF;
+
+    -- Unlock seat
+    UPDATE seats
+    SET
+        status = 'available',
+        locked_by = NULL,
+        locked_until = NULL
+    WHERE id = p_seat_id;
+
+    RETURN json_build_object(
+        'success', true,
+        'seat_id', p_seat_id
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', SQLERRM
+        );
+
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -136,27 +209,40 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- booking atomicity — partial bookings are impossible."
 
 CREATE OR REPLACE FUNCTION create_booking(
-    p_user_id UUID,
     p_flight_id UUID,
     p_seat_ids UUID[],
     p_passengers JSONB
 )
 RETURNS JSON AS $$
 DECLARE
+    -- Secure authenticated user
+    v_user_id UUID := auth.uid();
+
+    -- Booking variables
     v_booking_id UUID;
     v_pnr TEXT;
+
+    -- Seat processing
     v_seat RECORD;
     v_seat_id UUID;
+
+    -- Passenger processing
     v_passenger JSONB;
     v_seat_number TEXT;
     v_idx INTEGER := 0;
 
-    -- Secure backend-controlled pricing
+    -- Secure backend pricing
     v_base_price NUMERIC;
     v_total_amount NUMERIC := 0;
 
 BEGIN
-    -- Release expired locks first
+
+    -- Reject unauthenticated users
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
+    END IF;
+
+    -- Release expired seat locks
     PERFORM release_expired_locks();
 
     -- Fetch real flight base price
@@ -181,7 +267,7 @@ BEGIN
         );
     END LOOP;
 
-    -- Verify all seats
+    -- Validate all selected seats
     FOR v_seat_id IN
         SELECT unnest(p_seat_ids)
     LOOP
@@ -192,7 +278,7 @@ BEGIN
         WHERE id = v_seat_id
         FOR UPDATE;
 
-        -- Seat missing
+        -- Seat existence check
         IF v_seat IS NULL THEN
             RAISE EXCEPTION
                 'Seat not found: %',
@@ -208,14 +294,14 @@ BEGIN
 
         -- Locked by another user
         IF v_seat.status = 'locked'
-           AND v_seat.locked_by != p_user_id THEN
+           AND v_seat.locked_by != v_user_id THEN
 
             RAISE EXCEPTION
                 'Seat % is reserved by another user',
                 v_seat.seat_number;
         END IF;
 
-        -- Wrong flight protection
+        -- Validate seat belongs to selected flight
         IF v_seat.flight_id != p_flight_id THEN
             RAISE EXCEPTION
                 'Seat % does not belong to this flight',
@@ -240,7 +326,7 @@ BEGIN
         passenger_count
     )
     VALUES (
-        p_user_id,
+        v_user_id,
         p_flight_id,
         v_pnr,
         'confirmed',
@@ -249,7 +335,7 @@ BEGIN
     )
     RETURNING id INTO v_booking_id;
 
-    -- Book seats + passengers
+    -- Process seats + passengers
     FOREACH v_seat_id IN ARRAY p_seat_ids
     LOOP
 
@@ -261,7 +347,7 @@ BEGIN
             locked_until = NULL
         WHERE id = v_seat_id;
 
-        -- Junction table
+        -- Create junction record
         INSERT INTO booking_seats (
             booking_id,
             seat_id
@@ -271,13 +357,13 @@ BEGIN
             v_seat_id
         );
 
-        -- Seat number lookup
+        -- Fetch seat number
         SELECT seat_number
         INTO v_seat_number
         FROM seats
         WHERE id = v_seat_id;
 
-        -- Passenger insertion
+        -- Insert passenger
         IF v_idx < jsonb_array_length(p_passengers) THEN
 
             v_passenger :=
@@ -308,7 +394,7 @@ BEGIN
 
     END LOOP;
 
-    -- Update flight availability
+    -- Update flight seat count
     UPDATE flights
     SET
         available_seats =
@@ -344,82 +430,99 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- can't be bypassed."
 
 CREATE OR REPLACE FUNCTION cancel_booking(
-    p_booking_id UUID,
-    p_user_id UUID
+    p_booking_id UUID
 )
 RETURNS JSON AS $$
 DECLARE
+    -- Secure authenticated user
+    v_user_id UUID := auth.uid();
+
+    -- Booking data
     v_booking RECORD;
-    v_seat RECORD;
-    v_seat_count INTEGER;
+
+    -- Refund calculation
+    v_refund_amount NUMERIC := 0;
+
 BEGIN
-    -- Get booking with lock
-    SELECT b.*, f.departure_time
+
+    -- Reject unauthenticated users
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
+    END IF;
+
+    -- Fetch booking safely
+    SELECT *
     INTO v_booking
-    FROM bookings b
-    JOIN flights f ON f.id = b.flight_id
-    WHERE b.id = p_booking_id
-      AND b.user_id = p_user_id
-    FOR UPDATE OF b;
+    FROM bookings
+    WHERE id = p_booking_id
+    FOR UPDATE;
 
+    -- Booking missing
     IF v_booking IS NULL THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'Booking not found'
-        );
+        RAISE EXCEPTION
+            'Booking not found';
     END IF;
 
+    -- Prevent cancelling another user's booking
+    IF v_booking.user_id != v_user_id THEN
+        RAISE EXCEPTION
+            'Unauthorized booking cancellation';
+    END IF;
+
+    -- Prevent duplicate cancellation
     IF v_booking.status = 'cancelled' THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'Booking is already cancelled'
-        );
+        RAISE EXCEPTION
+            'Booking already cancelled';
     END IF;
 
-    -- 2-hour cancellation restriction
-    IF v_booking.departure_time - INTERVAL '2 hours' <= NOW() THEN
-        RETURN json_build_object(
-            'success', false,
-            'error', 'Cannot cancel within 2 hours of departure'
-        );
-    END IF;
+    -- Refund calculation (80%)
+    v_refund_amount :=
+        ROUND(v_booking.total_amount * 0.8);
 
-    -- Count seats to release
-    SELECT COUNT(*) INTO v_seat_count
-    FROM booking_seats
-    WHERE booking_id = p_booking_id;
+    -- Update booking
+    UPDATE bookings
+    SET
+        status = 'cancelled',
+        cancelled_at = NOW(),
+        updated_at = NOW()
+    WHERE id = p_booking_id;
 
-    -- Release all seats
+    -- Release booked seats
     UPDATE seats
-    SET status = 'available',
+    SET
+        status = 'available',
         locked_by = NULL,
         locked_until = NULL
     WHERE id IN (
-        SELECT seat_id FROM booking_seats
+        SELECT seat_id
+        FROM booking_seats
         WHERE booking_id = p_booking_id
     );
 
-    -- Update booking status
-    UPDATE bookings
-    SET status = 'cancelled',
-        cancelled_at = NOW()
-    WHERE id = p_booking_id;
-
-    -- Restore available seats on flight
+    -- Restore flight seat count
     UPDATE flights
-    SET available_seats = available_seats + v_seat_count
+    SET
+        available_seats =
+            available_seats +
+            (
+                SELECT COUNT(*)
+                FROM booking_seats
+                WHERE booking_id = p_booking_id
+            )
     WHERE id = v_booking.flight_id;
 
     RETURN json_build_object(
         'success', true,
-        'refund_amount', v_booking.total_amount
+        'refund_amount', v_refund_amount
     );
+
 EXCEPTION
     WHEN OTHERS THEN
         RETURN json_build_object(
             'success', false,
             'error', SQLERRM
         );
+
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
