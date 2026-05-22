@@ -17,7 +17,7 @@ https://github.com/dhruvmohan867/source-asia
 ## 🔴 Live Demo
 
 ```bash
-[INSERT_VERCEL_DEPLOYMENT_LINK]
+ https://source-asia-delta.vercel.app/
 ```
 
 ---
@@ -45,6 +45,26 @@ The architecture intentionally prioritizes:
 - realtime synchronization
 - concurrency protection
 - production-grade authorization
+
+ ---
+
+# 📸 Application Screenshots
+
+## ✈️ Homepage
+
+![Homepage Screenshot](./public/Screenshots/homepage.png)
+
+
+
+## 💺 Seat Map
+
+![Seat Map Screenshot](./public/Screenshots/seat-maps.png)
+
+
+
+## 🎫 Booking Dashboard
+
+![Booking Dashboard Screenshot](./public/Screenshots/booking-dashboard.png)
 
 ---
 
@@ -215,65 +235,7 @@ next-pwa
 
 ---
 
-# 📸 Application Screenshots
 
-## ✈️ Flight Search
-
-```md
-[INSERT_SEARCH_SCREENSHOT]
-```
-
----
-
-## 💺 Real-Time Seat Map
-
-```md
-[INSERT_SEATMAP_SCREENSHOT]
-```
-
----
-
-## 📋 Passenger Details Flow
-
-```md
-[INSERT_PASSENGER_SCREENSHOT]
-```
-
----
-
-## 🎫 My Bookings Dashboard
-
-```md
-[INSERT_BOOKINGS_SCREENSHOT]
-```
-
----
-
-## 📱 Lighthouse PWA Audit
-
-```md
-[INSERT_LIGHTHOUSE_SCREENSHOT]
-```
-
----
-
-
-
-## Primary User
-
-| Email | Password |
-|---|---|
-| `[INSERT_TEST_EMAIL]` | `[INSERT_TEST_PASSWORD]` |
-
----
-
-## Concurrent Testing User
-
-| Email | Password |
-|---|---|
-| `[INSERT_TEST_EMAIL_2]` | `[INSERT_TEST_PASSWORD_2]` |
-
----
 
 # 🧪 Race Condition Testing
 
