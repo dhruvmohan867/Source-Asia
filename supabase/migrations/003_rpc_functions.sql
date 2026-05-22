@@ -139,8 +139,7 @@ CREATE OR REPLACE FUNCTION create_booking(
     p_user_id UUID,
     p_flight_id UUID,
     p_seat_ids UUID[],
-    p_passengers JSONB,
-    p_total_amount INTEGER
+    p_passengers JSONB
 )
 RETURNS JSON AS $$
 DECLARE
@@ -151,66 +150,148 @@ DECLARE
     v_passenger JSONB;
     v_seat_number TEXT;
     v_idx INTEGER := 0;
+
+    -- Secure backend-controlled pricing
+    v_base_price NUMERIC;
+    v_total_amount NUMERIC := 0;
+
 BEGIN
     -- Release expired locks first
     PERFORM release_expired_locks();
 
+    -- Fetch real flight base price
+    SELECT base_price
+    INTO v_base_price
+    FROM flights
+    WHERE id = p_flight_id;
+
+    -- Validate flight exists
+    IF v_base_price IS NULL THEN
+        RAISE EXCEPTION 'Flight not found';
+    END IF;
+
     -- Generate unique PNR
     LOOP
         v_pnr := generate_pnr();
-        EXIT WHEN NOT EXISTS (SELECT 1 FROM bookings WHERE pnr = v_pnr);
+
+        EXIT WHEN NOT EXISTS (
+            SELECT 1
+            FROM bookings
+            WHERE pnr = v_pnr
+        );
     END LOOP;
 
-    -- Verify all seats are available or locked by this user
-    FOR v_seat_id IN SELECT unnest(p_seat_ids) LOOP
-        SELECT * INTO v_seat
+    -- Verify all seats
+    FOR v_seat_id IN
+        SELECT unnest(p_seat_ids)
+    LOOP
+
+        SELECT *
+        INTO v_seat
         FROM seats
         WHERE id = v_seat_id
         FOR UPDATE;
 
+        -- Seat missing
         IF v_seat IS NULL THEN
-            RAISE EXCEPTION 'Seat not found: %', v_seat_id;
+            RAISE EXCEPTION
+                'Seat not found: %',
+                v_seat_id;
         END IF;
 
+        -- Already booked
         IF v_seat.status = 'booked' THEN
-            RAISE EXCEPTION 'Seat % is already booked', v_seat.seat_number;
+            RAISE EXCEPTION
+                'Seat % is already booked',
+                v_seat.seat_number;
         END IF;
 
-        IF v_seat.status = 'locked' AND v_seat.locked_by != p_user_id THEN
-            RAISE EXCEPTION 'Seat % is reserved by another user', v_seat.seat_number;
+        -- Locked by another user
+        IF v_seat.status = 'locked'
+           AND v_seat.locked_by != p_user_id THEN
+
+            RAISE EXCEPTION
+                'Seat % is reserved by another user',
+                v_seat.seat_number;
         END IF;
 
+        -- Wrong flight protection
         IF v_seat.flight_id != p_flight_id THEN
-            RAISE EXCEPTION 'Seat % does not belong to this flight', v_seat.seat_number;
+            RAISE EXCEPTION
+                'Seat % does not belong to this flight',
+                v_seat.seat_number;
         END IF;
+
+        -- Secure backend price calculation
+        v_total_amount :=
+            v_total_amount +
+            v_base_price +
+            COALESCE(v_seat.price_modifier, 0);
+
     END LOOP;
 
-    -- Create booking record
-    INSERT INTO bookings (user_id, flight_id, pnr, status, total_amount, passenger_count)
-    VALUES (p_user_id, p_flight_id, v_pnr, 'confirmed', p_total_amount, array_length(p_seat_ids, 1))
+    -- Create booking
+    INSERT INTO bookings (
+        user_id,
+        flight_id,
+        pnr,
+        status,
+        total_amount,
+        passenger_count
+    )
+    VALUES (
+        p_user_id,
+        p_flight_id,
+        v_pnr,
+        'confirmed',
+        v_total_amount,
+        array_length(p_seat_ids, 1)
+    )
     RETURNING id INTO v_booking_id;
 
-    -- Book each seat and create booking_seats junction
-    FOREACH v_seat_id IN ARRAY p_seat_ids LOOP
-        -- Mark seat as booked
+    -- Book seats + passengers
+    FOREACH v_seat_id IN ARRAY p_seat_ids
+    LOOP
+
+        -- Mark seat booked
         UPDATE seats
-        SET status = 'booked',
+        SET
+            status = 'booked',
             locked_by = NULL,
             locked_until = NULL
         WHERE id = v_seat_id;
 
-        -- Create junction record
-        INSERT INTO booking_seats (booking_id, seat_id)
-        VALUES (v_booking_id, v_seat_id);
+        -- Junction table
+        INSERT INTO booking_seats (
+            booking_id,
+            seat_id
+        )
+        VALUES (
+            v_booking_id,
+            v_seat_id
+        );
 
-        -- Get seat number for passenger assignment
-        SELECT seat_number INTO v_seat_number
-        FROM seats WHERE id = v_seat_id;
+        -- Seat number lookup
+        SELECT seat_number
+        INTO v_seat_number
+        FROM seats
+        WHERE id = v_seat_id;
 
-        -- Insert passenger with seat assignment
+        -- Passenger insertion
         IF v_idx < jsonb_array_length(p_passengers) THEN
-            v_passenger := p_passengers->v_idx;
-            INSERT INTO passengers (booking_id, first_name, last_name, email, phone, passport_number, seat_number)
+
+            v_passenger :=
+                p_passengers->v_idx;
+
+            INSERT INTO passengers (
+                booking_id,
+                first_name,
+                last_name,
+                email,
+                phone,
+                passport_number,
+                seat_number
+            )
             VALUES (
                 v_booking_id,
                 v_passenger->>'firstName',
@@ -220,14 +301,19 @@ BEGIN
                 v_passenger->>'passportNumber',
                 v_seat_number
             );
+
         END IF;
 
         v_idx := v_idx + 1;
+
     END LOOP;
 
-    -- Update available seat count on flight
+    -- Update flight availability
     UPDATE flights
-    SET available_seats = available_seats - array_length(p_seat_ids, 1)
+    SET
+        available_seats =
+            available_seats -
+            array_length(p_seat_ids, 1)
     WHERE id = p_flight_id;
 
     RETURN json_build_object(
@@ -235,12 +321,14 @@ BEGIN
         'booking_id', v_booking_id,
         'pnr', v_pnr
     );
+
 EXCEPTION
     WHEN OTHERS THEN
         RETURN json_build_object(
             'success', false,
             'error', SQLERRM
         );
+
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

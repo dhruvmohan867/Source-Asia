@@ -191,7 +191,7 @@ export interface Database {
           p_flight_id: string;
           p_seat_ids: string[];
           p_passengers: PassengerFormData[];
-          p_total_amount: number;
+          
         };
         Returns: CreateBookingResponse;
       };

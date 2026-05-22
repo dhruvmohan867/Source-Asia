@@ -106,7 +106,7 @@ export default function PassengersPage() {
   p_flight_id: String(selectedFlight.id),
   p_seat_ids: selectedSeats.map((s) => String(s.id)),
   p_passengers: JSON.stringify(forms),
-  p_total_amount: Number(totalAmount),
+  
 });
 
 console.log('BOOKING DATA:', data);
