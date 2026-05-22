@@ -114,3 +114,32 @@ Complex business logic is pushed down to the PostgreSQL layer to ensure data int
 git clone [https://github.com/dhruvmohan867/source-asia.git](https://github.com/dhruvmohan867/source-asia.git)
 cd source-asia
 npm install
+<<<<<<< HEAD
+=======
+2. Environment Configuration
+Create a .env.local file based on the provided .env.example:
+
+Code snippet
+NEXT_PUBLIC_SUPABASE_URL=your_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+3. Database Migration & Seeding
+Using the Supabase CLI, push the schema, RLS policies, and RPCs to your project:
+
+Bash
+npx supabase login
+npx supabase link --project-ref your_project_id
+
+npx supabase db push
+npx supabase db reset # Seeds flights, seats, and test users
+4. Run the Development Server
+Bash
+npm run dev
+⚖️ Technical Trade-offs & Future Improvements
+Cancellation 2-Hour Rule Enforcement: Currently, the UI disables the cancel button based on the 2-hour rule, and the database explicitly enforces this rule for rescheduling via the reschedule_booking RPC. Given more time, I would update the cancel_booking RPC to actively query the flights table and block cancellations at the DB level to prevent potential API bypasses.
+
+Payment Processing Integration: The current application calculates pricing and immediately confirms bookings. In a real-world scenario, I would split the create_booking RPC to insert a booking with a pending_payment status, integrate Stripe webhooks, and confirm the booking asynchronously.
+
+Database Polling for Expired Locks: Expired seat locks are currently released lazily whenever lock_seat or create_booking is called. For maximum efficiency, I would configure a pg_cron extension within Supabase to run release_expired_locks() every 60 seconds.
+
+Built by Dhruv Mohan Shukla for the Source Asia Frontend Internship 
+>>>>>>> 6cfd04d (made README structured as want)
