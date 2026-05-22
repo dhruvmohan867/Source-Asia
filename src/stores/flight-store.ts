@@ -1,14 +1,11 @@
-// ============================================================
-// Flight Store — Unified Store for Search and Bookings Flow
-// ============================================================
-// WHY: Fully satisfies the exact technical assignment criteria:
-// "Create useFlightStore with: active search query, selected flight,
-// selected seat, current booking step, and passenger form data."
-// ============================================================
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Flight, Seat, PassengerFormData } from '@/types';
+
+import type {
+  Flight,
+  Seat,
+  PassengerFormData,
+} from '@/types';
 
 interface SearchQuery {
   origin: string;
@@ -18,29 +15,62 @@ interface SearchQuery {
 }
 
 interface FlightState {
-  // Active search query
+  // Search state
   searchQuery: SearchQuery;
-  
-  // Booking progress states
+
+  // Booking flow
   selectedFlight: Flight | null;
   selectedSeats: Seat[];
   currentStep: number;
+
+  // Passenger flow
   passengerFormData: PassengerFormData[];
+
+  // Pricing
   totalAmount: number;
+
+  // UI state
   isBooking: boolean;
   bookingError: string | null;
 }
 
 interface FlightActions {
-  setSearchQuery: (query: Partial<SearchQuery>) => void;
-  setFlight: (flight: Flight | null) => void;
-  setSelectedSeats: (seats: Seat[]) => void;
+  setSearchQuery: (
+    query: Partial<SearchQuery>
+  ) => void;
+
+  setFlight: (
+    flight: Flight | null
+  ) => void;
+
+  setSelectedSeats: (
+    seats: Seat[]
+  ) => void;
+
   addSeat: (seat: Seat) => void;
-  removeSeat: (seatId: string) => void;
-  setStep: (step: number) => void;
-  setPassengerFormData: (passengers: PassengerFormData[]) => void;
-  setBooking: (isBooking: boolean) => void;
-  setBookingError: (error: string | null) => void;
+
+  removeSeat: (
+    seatId: string
+  ) => void;
+
+  clearSeats: () => void;
+
+  setStep: (
+    step: number
+  ) => void;
+
+  setPassengerFormData: (
+    passengers: PassengerFormData[]
+  ) => void;
+
+  setBooking: (
+    isBooking: boolean
+  ) => void;
+
+  setBookingError: (
+    error: string | null
+  ) => void;
+
   reset: () => void;
 }
 
@@ -51,81 +81,202 @@ const initialState: FlightState = {
     date: '',
     passengers: 1,
   },
+
   selectedFlight: null,
+
   selectedSeats: [],
+
   currentStep: 0,
+
   passengerFormData: [],
+
   totalAmount: 0,
+
   isBooking: false,
+
   bookingError: null,
 };
 
-export const useFlightStore = create<FlightState & FlightActions>()(
+export const useFlightStore = create<
+  FlightState & FlightActions
+>()(
   persist(
     (set, get) => ({
       ...initialState,
 
+      // ============================================================
+      // Search Query
+      // ============================================================
+
       setSearchQuery: (query) =>
         set((state) => ({
-          searchQuery: { ...state.searchQuery, ...query },
+          searchQuery: {
+            ...state.searchQuery,
+            ...query,
+          },
         })),
+
+      // ============================================================
+      // Flight Selection
+      // ============================================================
 
       setFlight: (selectedFlight) =>
         set({
           selectedFlight,
+
           selectedSeats: [],
+
           passengerFormData: [],
-          currentStep: selectedFlight ? 1 : 0,
-          totalAmount: selectedFlight ? selectedFlight.base_price : 0,
+
+          currentStep:
+            selectedFlight ? 1 : 0,
+
+          totalAmount:
+            selectedFlight?.base_price ?? 0,
         }),
 
-      setSelectedSeats: (selectedSeats) => set({ selectedSeats }),
+      // ============================================================
+      // Seat Selection
+      // ============================================================
+
+      setSelectedSeats: (
+        selectedSeats
+      ) =>
+        set({
+          selectedSeats,
+        }),
 
       addSeat: (seat) => {
-        const current = get().selectedSeats;
-        if (current.find((s) => s.id === seat.id)) return;
-        const newSeats = [...current, seat];
-        const flight = get().selectedFlight;
-        const baseAmount = (flight?.base_price ?? 0) * newSeats.length;
-        const seatModifiers = newSeats.reduce((sum, s) => sum + s.price_modifier, 0);
+        const currentSeats =
+          get().selectedSeats;
+
+        // Prevent duplicate selection
+        const alreadyExists =
+          currentSeats.some(
+            (s) => s.id === seat.id
+          );
+
+        if (alreadyExists) return;
+
+        const updatedSeats = [
+          ...currentSeats,
+          seat,
+        ];
+
+        const flight =
+          get().selectedFlight;
+
+        const basePrice =
+          flight?.base_price ?? 0;
+
+        const total =
+          updatedSeats.reduce(
+            (sum, currentSeat) =>
+              sum +
+              basePrice +
+              currentSeat.price_modifier,
+            0
+          );
+
         set({
-          selectedSeats: newSeats,
-          totalAmount: baseAmount + seatModifiers,
+          selectedSeats: updatedSeats,
+          totalAmount: total,
         });
       },
 
       removeSeat: (seatId) => {
-        const newSeats = get().selectedSeats.filter((s) => s.id !== seatId);
-        const flight = get().selectedFlight;
-        const baseAmount = (flight?.base_price ?? 0) * newSeats.length;
-        const seatModifiers = newSeats.reduce((sum, s) => sum + s.price_modifier, 0);
+        const filteredSeats =
+          get().selectedSeats.filter(
+            (seat) =>
+              seat.id !== seatId
+          );
+
+        const flight =
+          get().selectedFlight;
+
+        const basePrice =
+          flight?.base_price ?? 0;
+
+        const total =
+          filteredSeats.reduce(
+            (sum, currentSeat) =>
+              sum +
+              basePrice +
+              currentSeat.price_modifier,
+            0
+          );
+
         set({
-          selectedSeats: newSeats,
-          totalAmount: baseAmount + seatModifiers,
+          selectedSeats:
+            filteredSeats,
+          totalAmount: total,
         });
       },
 
-      setStep: (currentStep) => set({ currentStep }),
+      clearSeats: () =>
+        set({
+          selectedSeats: [],
+          totalAmount: 0,
+        }),
 
-      setPassengerFormData: (passengerFormData) => set({ passengerFormData }),
+      // ============================================================
+      // Booking Flow
+      // ============================================================
 
-      setBooking: (isBooking) => set({ isBooking }),
+      setStep: (currentStep) =>
+        set({
+          currentStep,
+        }),
 
-      setBookingError: (bookingError) => set({ bookingError }),
+      setPassengerFormData: (
+        passengerFormData
+      ) =>
+        set({
+          passengerFormData,
+        }),
 
-      reset: () => set(initialState),
+      setBooking: (isBooking) =>
+        set({
+          isBooking,
+        }),
+
+      setBookingError: (
+        bookingError
+      ) =>
+        set({
+          bookingError,
+        }),
+
+      // ============================================================
+      // Reset
+      // ============================================================
+
+      reset: () =>
+        set({
+          ...initialState,
+        }),
     }),
+
     {
       name: 'source-asia-flight-flow',
-      // WHY partialize: Excludes sensitive PII (passport numbers) from local storage
-      // while preserving active search query and flight progress details.
+
+      // Prevent sensitive passenger
+      // data from localStorage persistence
       partialize: (state) => ({
-        searchQuery: state.searchQuery,
-        selectedFlight: state.selectedFlight,
-        selectedSeats: state.selectedSeats,
-        currentStep: state.currentStep,
-        totalAmount: state.totalAmount,
-        // passengerFormData is EXCLUDED from localStorage due to sensitive passport details
+        searchQuery:
+          state.searchQuery,
+
+        selectedFlight:
+          state.selectedFlight,
+
+        selectedSeats:
+          state.selectedSeats,
+
+        currentStep:
+          state.currentStep,
+
+        totalAmount:
+          state.totalAmount,
       }),
     }
   )

@@ -141,10 +141,10 @@ export function SeatMap({ flightId, maxSeats, basePrice }: SeatMapProps) {
       };
 
       // Rollback if RPC fails
-      if (!result?.success) {
+      if (error || !result?.success) {
         removeSeat(seat.id);
 
-        toast.error(result?.error ?? "Failed to select seat");
+        toast.error(result?.error ?? error?.message ?? "Failed to select seat");
 
         fetchSeats();
       }
