@@ -76,7 +76,7 @@ export default function RegisterPage() {
           <Input
             id="register-name"
             label="Full Name"
-            placeholder="John Doe"
+            placeholder="Dhruv Mohan Shukla"
             value={fullName}
             onChange={(e) => { setFullName(e.target.value); setErrors({}); }}
             error={errors.fullName}

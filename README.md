@@ -67,7 +67,24 @@ The architecture intentionally prioritizes:
 ![Booking Dashboard Screenshot](./public/Screenshots/booking-dashboard.png)
 
 ---
+## Sample Flights for Testing
 
+Use the following airport codes while searching flights:
+
+| From | To | Available Routes |
+|------|----|------------------|
+| DEL | BOM | Delhi → Mumbai |
+| BOM | DEL | Mumbai → Delhi |
+| DEL | BLR | Delhi → Bangalore |
+| BLR | DEL | Bangalore → Delhi |
+| BOM | BLR | Mumbai → Bangalore |
+| DEL | HYD | Delhi → Hyderabad |
+| HYD | DEL | Hyderabad → Delhi |
+| BOM | MAA | Mumbai → Chennai |
+| MAA | BOM | Chennai → Mumbai |
+| DEL | CCU | Delhi → Kolkata |
+
+---
 # 🚀 Features
 
 ## ✈️ Flight Search
