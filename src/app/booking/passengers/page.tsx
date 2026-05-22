@@ -160,7 +160,7 @@ console.log('BOOKING ERROR:', error);
               <Input
                 id={`firstName-${index}`}
                 label="First Name"
-                placeholder="John"
+                placeholder="Dhruv"
                 value={form.firstName}
                 onChange={(e) => updateForm(index, 'firstName', e.target.value)}
                 error={errors[index]?.firstName}
@@ -169,7 +169,7 @@ console.log('BOOKING ERROR:', error);
               <Input
                 id={`lastName-${index}`}
                 label="Last Name"
-                placeholder="Doe"
+                placeholder="Mohan Shukla"
                 value={form.lastName}
                 onChange={(e) => updateForm(index, 'lastName', e.target.value)}
                 error={errors[index]?.lastName}
@@ -179,7 +179,7 @@ console.log('BOOKING ERROR:', error);
                 id={`email-${index}`}
                 label="Email"
                 type="email"
-                placeholder="john@example.com"
+                placeholder="sample@example.com"
                 value={form.email}
                 onChange={(e) => updateForm(index, 'email', e.target.value)}
                 error={errors[index]?.email}
@@ -189,7 +189,7 @@ console.log('BOOKING ERROR:', error);
                 id={`phone-${index}`}
                 label="Phone"
                 type="tel"
-                placeholder="+91 9876543210"
+                placeholder="+91 98********"
                 value={form.phone}
                 onChange={(e) => updateForm(index, 'phone', e.target.value)}
                 error={errors[index]?.phone}
