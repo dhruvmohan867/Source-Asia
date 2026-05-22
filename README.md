@@ -1,145 +1,644 @@
 # ✈️ Source-Asia Flight Management App
 
-**📁 Repository:** [github.com/dhruvmohan867/source-asia](https://github.com/dhruvmohan867/source-asia)
-**🔴 Live Demo:** [INSERT_VERCEL_LINK_HERE]
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue?style=for-the-badge&logo=typescript)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green?style=for-the-badge&logo=supabase)
+![PWA](https://img.shields.io/badge/PWA-Enabled-purple?style=for-the-badge)
+![License](https://img.shields.io/badge/Status-Production_Grade-success?style=for-the-badge)
 
 ---
 
-## 📌 Project Summary
+## 📁 Repository
 
-Source-Asia Flight Management is a **production-grade, full-stack Progressive Web Application (PWA)** built for the Source Asia Frontend Internship Technical Assignment. It provides a highly concurrent, secure, and responsive flight booking experience.
-
-- ✈️ **Flight Search** — Seamlessly filter by origin, destination, dates, and passenger counts.
-- 💺 **Interactive Real-Time Seat Map** — Visual cabin grid (First, Business, Economy) that updates instantly across all connected clients via Supabase Realtime WebSockets.
-- 🔒 **Race-Condition-Safe Booking** — Utilizes PostgreSQL `FOR UPDATE SKIP LOCKED` optimistic locking with a 10-minute expiry to guarantee no double-bookings.
-- 📋 **Secure Passenger Details** — Collects necessary travel info while strictly ensuring PII (Passport Numbers) never touches unencrypted browser storage.
-- 🎫 **Atomic Transactions** — Bookings, seat assignments, and PNR generation happen within single, atomic PostgreSQL RPC functions.
-- 🔄 **Manage Bookings** — Users can reschedule flights or cancel tickets, with business logic strictly enforced at the database level.
-- 🗃️ **Zustand Persistence** — Search and booking flow survives browser refreshes, leveraging `partialize` to exclude sensitive transient data.
-- 📱 **Progressive Web App** — Installable, scores >=90 on Lighthouse, and utilizes `next-pwa` for offline readability and caching.
-- 🛡️ **Ironclad RLS** — Database Row Level Security ensures users can only read and write their own data using strict `EXISTS` join checks.
-
-**Tech Stack:** Next.js 14 (App Router) · Supabase (PostgreSQL + Auth + Realtime) · Zustand · Tailwind CSS · TypeScript · next-pwa
-
----
-
-## 📸 App Screenshots
-
-| Dashboard & Search | Realtime Seat Map |
-|:---:|:---:|
-| ![Search]([INSERT_IMAGE_LINK]) | ![Seat Map]([INSERT_IMAGE_LINK]) |
-
-| Passenger Details | My Bookings Dashboard |
-|:---:|:---:|
-| ![Passenger]([INSERT_IMAGE_LINK]) | ![Dashboard]([INSERT_IMAGE_LINK]) |
-
-| PWA Lighthouse Audit |
-|:---:|
-| ![Lighthouse]([INSERT_IMAGE_LINK]) |
-
----
-
-## 🧪 Test Accounts (Ready to Use)
-
-These accounts are pre-seeded in the database to test existing bookings, rescheduling, and cancellations immediately.
-
-| Role | Email | Password |
-|---|---|---|
-| Primary User | `[INSERT_TEST_EMAIL_1]` | `[INSERT_TEST_PASS_1]` |
-| Concurrent Tester | `[INSERT_TEST_EMAIL_2]` | `[INSERT_TEST_PASS_2]` |
-
-> 💡 **Testing Race Conditions:** Open two incognito windows with different accounts. View the same flight and try to select the same seat simultaneously. The database's optimistic locking will successfully block the second attempt.
-
----
-
-## 📋 Assignment Requirements Coverage
-
-| Requirement | Status | Implementation Details |
-|---|:---:|---|
-| **User Auth** | ✅ | Supabase Auth integrated securely with Next.js |
-| **Flight Search** | ✅ | Fetches matching routes, prices, and durations |
-| **Interactive Seat Map** | ✅ | Fully responsive grid with hover tooltips and class colors |
-| **Realtime Availability** | ✅ | Supabase `postgres_changes` channel on `seats` table |
-| **Atomic Seat Locking** | ✅ | `lock_seat` RPC using `FOR UPDATE SKIP LOCKED` |
-| **Passenger Form** | ✅ | Validates full name, passport, phone, and email |
-| **Booking & PNR** | ✅ | `create_booking` RPC handles atomic multi-table inserts |
-| **Cancel Booking** | ✅ | `cancel_booking` RPC atomically frees seats and refunds |
-| **Reschedule Booking** | ✅ | Swaps flights and calculates price differences seamlessly |
-| **My Bookings Page** | ✅ | Lists active/cancelled/rescheduled tickets with badges |
-| **Row Level Security** | ✅ | Strictly implemented across all tables |
-| **Zustand Stores** | ✅ | Separated `useFlightStore` and `useUserStore` |
-| **PII Exclusion** | ✅ | `partialize` strictly excludes `passengers` array from local storage |
-| **PWA Configured** | ✅ | Custom manifest, standalone mode, and caching strategies |
-| **Offline Support** | ✅ | Fallback page and `StaleWhileRevalidate` caching |
-| **TypeScript Code Quality** | ✅ | Strict typing throughout, leveraging Supabase generated types |
-
----
-
-## 🏗️ Architecture & State Management
-
-### State Management Separation
-State is intentionally decoupled into two dedicated stores to balance user experience and security:
-
-1. **`useFlightStore` (Booking Flow):**
-   * Manages step-by-step progress (Flight -> Seats -> Passengers -> Payment).
-   * **Security Focus:** Uses the `persist` and `partialize` middlewares to save search parameters and seat selections to `localStorage`, allowing tab recovery. Crucially, the `passengers` array is excluded to prevent Passport Number leakage.
-2. **`useUserStore` (Session & Cache):**
-   * **Security Focus:** Strictly persists *only* the `sessionToken`. All cached bookings and active user states remain in transient memory and are wiped entirely on logout.
-
-### Database Operations (RPCs)
-Complex business logic is pushed down to the PostgreSQL layer to ensure data integrity:
-* `lock_seat` / `unlock_seat`: Optimistic locking with automatic expiration via `release_expired_locks()`.
-* `create_booking`: A single transaction that generates a PNR, verifies seat locks, calculates total prices from the secure backend base price, updates flight capacity, and inserts passenger records.
-
----
-
-## 🗃️ Database Schema & Security
-
-**Tables:** `flights`, `seats`, `bookings`, `passengers`, `booking_seats` (junction), `reschedules`
-
-**Security Highlights:**
-* **Normalized Data:** Seat data is tracked in its own table to enable real-time UI subscriptions and row-level locking.
-* **RLS Policies:** Child tables (like `passengers` and `booking_seats`) do not rely on trusting a client-provided `user_id`. Instead, RLS policies use joined `EXISTS` statements to verify the authenticated user owns the parent `bookings` record.
-
----
-
-## ⚙️ Local Setup Instructions
-
-### Prerequisites
-* Node.js 18+
-* Supabase CLI (`npm install -g supabase`)
-
-### 1. Clone & Install
 ```bash
-git clone [https://github.com/dhruvmohan867/source-asia.git](https://github.com/dhruvmohan867/source-asia.git)
-cd source-asia
-npm install
-<<<<<<< HEAD
-=======
-2. Environment Configuration
-Create a .env.local file based on the provided .env.example:
+https://github.com/dhruvmohan867/source-asia
+```
 
-Code snippet
+## 🔴 Live Demo
+
+```bash
+[INSERT_VERCEL_DEPLOYMENT_LINK]
+```
+
+---
+
+# 📌 Project Overview
+
+Source-Asia Flight Management is a **production-grade, full-stack Progressive Web Application (PWA)** developed for the **Source Asia Frontend Internship Technical Assignment**.
+
+The application simulates a real-world airline booking platform with:
+
+- ✈️ Flight search
+- 💺 Real-time seat selection
+- 🔒 Concurrency-safe booking system
+- 🎫 Atomic PostgreSQL transactions
+- 🛡️ Backend-authoritative security
+- 📱 Progressive Web App support
+- ⚡ Optimistic UI updates
+- 🔄 Flight rescheduling & cancellations
+
+The architecture intentionally prioritizes:
+
+- transaction consistency
+- secure backend validation
+- scalability
+- realtime synchronization
+- concurrency protection
+- production-grade authorization
+
+---
+
+# 🚀 Features
+
+## ✈️ Flight Search
+
+- Search by:
+  - origin
+  - destination
+  - departure date
+  - passenger count
+- Dynamic filtering
+- Responsive search UI
+
+---
+
+## 💺 Interactive Real-Time Seat Map
+
+- Visual aircraft cabin grid
+- First / Business / Economy seat classes
+- Live seat updates using Supabase Realtime
+- Optimistic UI updates
+- Real-time synchronization across users
+
+### Seat Features
+
+- Hover tooltips
+- Occupied seat indicators
+- Price modifiers
+- Live seat locking
+- Responsive mobile seat map
+
+---
+
+## 🔒 Concurrency-Safe Seat Locking
+
+Uses PostgreSQL row locking:
+
+```sql
+FOR UPDATE SKIP LOCKED
+```
+
+to prevent:
+- double bookings
+- race conditions
+- seat conflicts
+
+### Locking Features
+
+- 10-minute seat lock expiration
+- automatic lock cleanup
+- multi-user conflict handling
+- backend lock validation
+
+---
+
+## 🎫 Atomic Booking Transactions
+
+Bookings are handled entirely inside PostgreSQL RPC functions.
+
+### Backend Transaction Responsibilities
+
+- validate selected seats
+- calculate secure pricing
+- generate unique PNR
+- insert passengers
+- update seat inventory
+- update flight availability
+- commit transaction atomically
+
+---
+
+## 🔄 Booking Management
+
+Users can:
+
+- cancel bookings
+- reschedule flights
+- view booking history
+- view booking statuses
+
+All operations are:
+- ownership validated
+- transaction safe
+- backend authorized
+
+---
+
+## 🛡️ Security Architecture
+
+### Backend-Controlled Pricing
+
+Frontend totals are NEVER trusted.
+
+The backend:
+- fetches actual flight base prices
+- validates seat modifiers
+- calculates final totals securely
+
+Prevents:
+- payload tampering
+- checkout manipulation
+- fake booking totals
+
+---
+
+### Secure Authorization with `auth.uid()`
+
+All sensitive RPC functions derive identity using:
+
+```sql
+auth.uid()
+```
+
+instead of trusting frontend-provided user IDs.
+
+Protected operations:
+- create_booking
+- lock_seat
+- unlock_seat
+- cancel_booking
+- reschedule_booking
+
+---
+
+### Strict Row Level Security (RLS)
+
+RLS policies ensure:
+- users can only access their own bookings
+- passenger ownership validation
+- secure relational access
+- no direct client-side trust
+
+---
+
+# 📱 Progressive Web App (PWA)
+
+Implemented using:
+
+```bash
+next-pwa
+```
+
+### PWA Features
+
+- installable application
+- offline fallback support
+- runtime caching
+- mobile-friendly experience
+- Lighthouse optimization
+- standalone app mode
+
+---
+
+# 🧰 Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| Next.js 16 (App Router) | Frontend Framework |
+| TypeScript | Type Safety |
+| Supabase | Backend + Auth + Realtime |
+| PostgreSQL | Database |
+| Zustand | State Management |
+| Tailwind CSS | Styling |
+| next-pwa | Progressive Web App |
+| Supabase Realtime | Live Seat Synchronization |
+
+---
+
+# 📸 Application Screenshots
+
+## ✈️ Flight Search
+
+```md
+[INSERT_SEARCH_SCREENSHOT]
+```
+
+---
+
+## 💺 Real-Time Seat Map
+
+```md
+[INSERT_SEATMAP_SCREENSHOT]
+```
+
+---
+
+## 📋 Passenger Details Flow
+
+```md
+[INSERT_PASSENGER_SCREENSHOT]
+```
+
+---
+
+## 🎫 My Bookings Dashboard
+
+```md
+[INSERT_BOOKINGS_SCREENSHOT]
+```
+
+---
+
+## 📱 Lighthouse PWA Audit
+
+```md
+[INSERT_LIGHTHOUSE_SCREENSHOT]
+```
+
+---
+
+# 🧪 Test Accounts
+
+## Primary User
+
+| Email | Password |
+|---|---|
+| `[INSERT_TEST_EMAIL]` | `[INSERT_TEST_PASSWORD]` |
+
+---
+
+## Concurrent Testing User
+
+| Email | Password |
+|---|---|
+| `[INSERT_TEST_EMAIL_2]` | `[INSERT_TEST_PASSWORD_2]` |
+
+---
+
+# 🧪 Race Condition Testing
+
+To test concurrent booking protection:
+
+1. Open two browser windows
+2. Login using different accounts
+3. Open the same flight
+4. Attempt selecting the same seat simultaneously
+
+### Expected Result
+
+- First user successfully locks seat
+- Second user receives lock conflict
+- Realtime synchronization updates instantly
+
+---
+
+# 📋 Assignment Requirements Coverage
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| User Authentication | ✅ | Supabase Auth |
+| Flight Search | ✅ | Dynamic filtering |
+| Interactive Seat Map | ✅ | Responsive realtime seat grid |
+| Real-Time Availability | ✅ | Supabase Realtime |
+| Seat Locking | ✅ | PostgreSQL row locking |
+| Passenger Form | ✅ | Fully validated flow |
+| Booking & PNR | ✅ | Atomic RPC transaction |
+| Cancel Booking | ✅ | Secure backend RPC |
+| Reschedule Booking | ✅ | Backend transactional flow |
+| My Bookings Dashboard | ✅ | Booking history management |
+| Zustand Store Architecture | ✅ | Unified booking state |
+| Sensitive Data Protection | ✅ | `partialize` excludes PII |
+| PWA Support | ✅ | next-pwa integration |
+| Offline Support | ✅ | Runtime caching |
+| TypeScript Strictness | ✅ | Strongly typed architecture |
+| Backend Pricing Security | ✅ | Server-side calculations |
+| Secure Authorization | ✅ | `auth.uid()` validation |
+
+---
+
+# 🏗️ Architecture Overview
+
+## Zustand State Management
+
+### `useFlightStore`
+
+Handles:
+- search query
+- selected flight
+- selected seats
+- booking progress
+- passenger flow
+
+Uses:
+```ts
+persist + partialize
+```
+
+to safely preserve booking progress while excluding sensitive passenger data.
+
+---
+
+## Why Passenger Data Is Excluded
+
+Passenger data includes:
+- passport numbers
+- personally identifiable information
+
+Sensitive data is intentionally excluded from localStorage to prevent:
+- browser persistence leaks
+- unauthorized access
+- insecure storage practices
+
+---
+
+# ⚙️ Database Architecture
+
+## Core Tables
+
+| Table | Purpose |
+|---|---|
+| flights | Flight inventory |
+| seats | Seat management |
+| bookings | Booking records |
+| passengers | Passenger details |
+| booking_seats | Junction table |
+| reschedules | Reschedule history |
+
+---
+
+# ⚡ PostgreSQL RPC Functions
+
+## `lock_seat`
+
+Handles:
+- optimistic locking
+- seat reservation
+- anti-spam lock validation
+- concurrent protection
+
+---
+
+## `unlock_seat`
+
+Handles:
+- ownership validation
+- secure seat release
+
+---
+
+## `create_booking`
+
+Atomic transaction:
+- validates seats
+- calculates pricing
+- inserts passengers
+- updates availability
+- generates PNR
+
+---
+
+## `cancel_booking`
+
+Handles:
+- ownership verification
+- seat release
+- refund calculation
+- inventory restoration
+
+---
+
+# 🔐 Security Highlights
+
+## Backend-Authoritative Pricing
+
+Frontend booking totals are ignored.
+
+The backend securely calculates:
+- flight base prices
+- seat modifiers
+- final totals
+
+---
+
+## Authorization Security
+
+All secure RPCs derive identity using:
+
+```sql
+auth.uid()
+```
+
+instead of trusting frontend payloads.
+
+---
+
+## Concurrency Protection
+
+Uses PostgreSQL locking:
+
+```sql
+FOR UPDATE SKIP LOCKED
+```
+
+to prevent:
+- duplicate bookings
+- race conditions
+- seat conflicts
+
+---
+
+# 📱 PWA Features
+
+Implemented with:
+
+```bash
+next-pwa
+```
+
+Includes:
+- offline fallback pages
+- runtime caching
+- install prompt
+- standalone mode
+- mobile installability
+
+---
+
+# ⚙️ Local Setup
+
+## 1️⃣ Clone Repository
+
+```bash
+git clone https://github.com/dhruvmohan867/source-asia.git
+cd source-asia
+```
+
+---
+
+## 2️⃣ Install Dependencies
+
+```bash
+npm install
+```
+
+---
+
+## 3️⃣ Configure Environment Variables
+
+Create:
+
+```bash
+.env.local
+```
+
+Example:
+
+```env
 NEXT_PUBLIC_SUPABASE_URL=your_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-3. Database Migration & Seeding
-Using the Supabase CLI, push the schema, RLS policies, and RPCs to your project:
+```
 
-Bash
+---
+
+# 🗄️ Supabase Setup
+
+## Link Project
+
+```bash
 npx supabase login
 npx supabase link --project-ref your_project_id
+```
 
+---
+
+## Run Database Migrations
+
+```bash
 npx supabase db push
-npx supabase db reset # Seeds flights, seats, and test users
-4. Run the Development Server
-Bash
+```
+
+---
+
+## Seed Database
+
+```bash
+npx supabase db reset
+```
+
+Seeds:
+- flights
+- seats
+- bookings
+- test users
+
+---
+
+# ▶️ Start Development Server
+
+```bash
 npm run dev
-⚖️ Technical Trade-offs & Future Improvements
-Cancellation 2-Hour Rule Enforcement: Currently, the UI disables the cancel button based on the 2-hour rule, and the database explicitly enforces this rule for rescheduling via the reschedule_booking RPC. Given more time, I would update the cancel_booking RPC to actively query the flights table and block cancellations at the DB level to prevent potential API bypasses.
+```
 
-Payment Processing Integration: The current application calculates pricing and immediately confirms bookings. In a real-world scenario, I would split the create_booking RPC to insert a booking with a pending_payment status, integrate Stripe webhooks, and confirm the booking asynchronously.
+---
 
-Database Polling for Expired Locks: Expired seat locks are currently released lazily whenever lock_seat or create_booking is called. For maximum efficiency, I would configure a pg_cron extension within Supabase to run release_expired_locks() every 60 seconds.
+# 🧪 Production Testing Checklist
 
-Built by Dhruv Mohan Shukla for the Source Asia Frontend Internship 
->>>>>>> 6cfd04d (made README structured as want)
+## Authentication
+
+- [x] Login
+- [x] Register
+- [x] Session persistence
+
+---
+
+## Booking Flow
+
+- [x] Flight search
+- [x] Seat selection
+- [x] Passenger forms
+- [x] Booking creation
+- [x] PNR generation
+
+---
+
+## Concurrency
+
+- [x] Multi-user locking
+- [x] Race-condition prevention
+- [x] Realtime synchronization
+
+---
+
+## Booking Management
+
+- [x] Cancel booking
+- [x] Reschedule booking
+- [x] Booking history
+
+---
+
+## PWA
+
+- [x] Offline support
+- [x] Install prompt
+- [x] Lighthouse optimization
+
+---
+
+# ⚖️ Technical Trade-Offs & Future Improvements
+
+## Payment Integration
+
+Future implementation:
+- Stripe integration
+- webhook confirmation flow
+- pending payment states
+
+---
+
+## Scheduled Lock Cleanup
+
+Currently:
+- expired locks release lazily
+
+Future improvement:
+- pg_cron scheduled cleanup
+
+---
+
+## Notification System
+
+Potential improvements:
+- booking emails
+- cancellation notifications
+- boarding reminders
+
+---
+
+# 👨‍💻 Developer Notes
+
+This project intentionally prioritizes:
+
+- backend correctness
+- secure authorization
+- transaction consistency
+- concurrency handling
+- production-grade architecture
+
+over simple CRUD implementation.
+
+The goal was to simulate:
+
+```txt
+real-world airline booking system behavior
+```
+
+rather than building a basic frontend assignment.
+
+---
+
+# 👨‍💻 Built By
+
+## Dhruv Mohan Shukla
+
+Built for the **Source Asia Frontend Internship Technical Assignment — 2026**
